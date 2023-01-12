@@ -1,4 +1,5 @@
 import { Channel, ErrorClosed } from './index.js';
+import assert from 'assert';
 
 function debug(...args) {
 	// console.debug(...args); // suppress debug
@@ -41,8 +42,8 @@ it('Channel: send-close-recv', async function () {
 	// noinspection ES6MissingAwait
 	send(chan, true, limit, -1, true);
 	
-	let errCaught;
 	// recv:
+	let errCaught;
 	try {
 		limit += 1; // excessive
 		
@@ -52,15 +53,9 @@ it('Channel: send-close-recv', async function () {
 		}
 	}
 	catch (err) {
-		if (err instanceof ErrorClosed) {
-			errCaught = err;
-		}
-		else {
-			throw err;
-		}
+		errCaught = err;
 	}
-	
-	console.assert(errCaught, 'error expected');
+	assert(errCaught instanceof ErrorClosed, 'Instance of ErrorClosed is expected to be thrown');
 });
 
 it('Channel: send-close-iter', async function () {
