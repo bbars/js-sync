@@ -1,0 +1,29 @@
+{
+  "type": "module",
+  "name": "syncasync",
+  "version": "1.0.0",
+  "description": "Package provides Teleport -- a tool with promise-like methods used to deliver data (looks like a Promise that you resolve from the outside). Also, it provides Channel -- multi-version of Teleport with an async iterator implemented.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha ./*.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bbars/syncasync.git"
+  },
+  "keywords": [
+    "async",
+    "promise",
+    "channel",
+    "teleport"
+  ],
+  "author": "Denis Borzenko (bars)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bbars/syncasync/issues"
+  },
+  "homepage": "https://github.com/bbars/syncasync#readme",
+  "devDependencies": {
+    "mocha": "^9.2.0"
+  }
+}
