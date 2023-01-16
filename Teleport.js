@@ -1,4 +1,5 @@
 import MutedTeleport from './MutedTeleport.js';
+import {ErrorCancelled} from './errors.js';
 
 export default class Teleport extends MutedTeleport {
 	_requestedTp;
@@ -8,12 +9,24 @@ export default class Teleport extends MutedTeleport {
 		this._requestedTp = new MutedTeleport();
 	}
 
-	async recv() {
-		const res = await super.recv();
-		if (this._requestedTp && !this._requestedTp.isClosed) {
-			this._requestedTp.send(true);
-		}
-		return res;
+	/*async*/ recv() {
+		const promise = super.recv();
+		promise
+			.then(() => {
+				if (this._requestedTp && !this._requestedTp.isClosed) {
+					this._requestedTp.send(true);
+				}
+			})
+			.catch((err) => {
+				if (err instanceof ErrorCancelled) {
+					return;
+				}
+				if (this._requestedTp && !this._requestedTp.isClosed) {
+					this._requestedTp.send(true);
+				}
+			})
+		;
+		return promise;
 	}
 
 	async send(value) {

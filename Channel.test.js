@@ -1,4 +1,5 @@
-import { Channel, ErrorClosed } from './index.js';
+import Channel from './Channel.js';
+import { ErrorClosed } from './errors.js';
 import assert from 'assert';
 
 function debug(...args) {
@@ -70,6 +71,8 @@ it('Channel: send-close-iter', async function () {
 		await new Promise(r => setTimeout(r, 5));
 	}
 });
+
+// UTILS:
 
 async function send(chan, synchronize, limit, delay = 5, close = false) {
 	for (let i = 0; i < limit; i++) {

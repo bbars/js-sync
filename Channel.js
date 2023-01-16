@@ -1,6 +1,7 @@
 import MutedTeleport from './MutedTeleport.js';
 import Teleport from './Teleport.js';
-import { ErrorClosed, ErrorClosedSend, ErrorClosedRecv } from './errors.js';
+import PromiseWithCancel from './PromiseWithCancel.js';
+import { ErrorClosed, ErrorClosedSend, ErrorClosedRecv, ErrorCancelled } from './errors.js';
 
 export default class Channel {
 	_buf = [];
@@ -14,26 +15,34 @@ export default class Channel {
 		return this._isClosed;
 	}
 
-	async recv() {
+	/**
+	 * @return {PromiseWithCancel}
+	 */
+	/*async*/ recv() {
 		if (this._buf.length > 0) {
 			const buffered = this._buf.shift();
 			buffered.requestedTp.send();
-			return buffered.value;
+			return PromiseWithCancel.resolve(buffered.value);
 		}
 		if (this._isClosed) {
-			throw new ErrorClosedRecv(`Can't recv from closed channel`);
+			return PromiseWithCancel.reject(new ErrorClosedRecv(`Can't recv from closed channel`));
 		}
 		const teleport = new Teleport();
-		this._queue.push(teleport);
-		try {
-			return teleport.recv();
-		}
-		catch (err) {
-			if (err === EOF) {
-				throw new ErrorClosed(`Channel is closed`);
-			}
-			throw err;
-		}
+		let numberInQueue = this._queue.push(teleport) - 1;
+		return new PromiseWithCancel(
+			(resolve, reject) => {
+				teleport.recv().then(resolve, reject);
+			},
+			() => {
+				teleport.reject(new ErrorCancelled());
+				for (let i = numberInQueue; i >= 0; i--) {
+					if (this._queue[i] === teleport) {
+						this._queue.splice(i, 1);
+						break;
+					}
+				}
+			},
+		);
 	}
 
 	async send(value) {
@@ -55,14 +64,16 @@ export default class Channel {
 		return queueLength - this._buf.length;
 	}
 
-	close() {
+	async close() {
 		if (this._isClosed) {
 			throw new ErrorClosed(`Channel is closed`);
 		}
 		this._isClosed = true;
+		const queueRejected = [];
 		for (const q of this._queue.splice(0, this._queue.length)) {
-			q.reject(new ErrorClosed('Channel was closed'));
+			queueRejected.push(q.reject(new ErrorClosed('Channel was closed')));
 		}
+		await Promise.all(queueRejected);
 	}
 
 	async* [Symbol.asyncIterator]() {
@@ -72,6 +83,9 @@ export default class Channel {
 			}
 			catch (err) {
 				if (err instanceof ErrorClosed) {
+					break;
+				}
+				if (err instanceof ErrorCancelled) {
 					break;
 				}
 				throw err;
