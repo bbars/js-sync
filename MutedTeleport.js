@@ -2,6 +2,7 @@ import { ErrorClosedSend, ErrorClosedRecv, ErrorConcurrentRecv, ErrorCancelled }
 import PromiseWithCancel from './PromiseWithCancel.js';
 
 export default class MutedTeleport {
+	_multiRecv;
 	_promise;
 	_resolve;
 	_reject;
@@ -9,7 +10,8 @@ export default class MutedTeleport {
 	_value;
 	_success = null;
 
-	constructor() {
+	constructor(multiRecv = false) {
+		this._multiRecv = multiRecv;
 	}
 
 	get isClosed() {
@@ -17,15 +19,20 @@ export default class MutedTeleport {
 	}
 
 	/*async*/ recv() {
-		if (this._received) {
-			return PromiseWithCancel.reject(new ErrorClosedRecv(`Can't recv from closed teleport`));
-		}
-		if (this._promise) {
-			return PromiseWithCancel.reject(new ErrorConcurrentRecv(`Can't recv from a concurrently used teleport`));
+		if (!this._multiRecv) {
+			if (this._received) {
+				return PromiseWithCancel.reject(new ErrorClosedRecv(`Can't recv from closed teleport`));
+			}
+			if (this._promise) {
+				return PromiseWithCancel.reject(new ErrorConcurrentRecv(`Can't recv from a concurrently used teleport`));
+			}
 		}
 		
 		if (this._success === null) {
 			// return await this._promise;
+			if (this._promise) {
+				return this._promise;
+			}
 			this._promise = new PromiseWithCancel(
 				(resolve, reject) => {
 					this._resolve = resolve;
@@ -53,7 +60,9 @@ export default class MutedTeleport {
 		}
 		finally {
 			this._received = true;
-			this._value = null;
+			if (!this._multiRecv) {
+				this._value = null;
+			}
 			this._promise = null;
 			this._resolve = null;
 			this._reject = null;
@@ -67,6 +76,9 @@ export default class MutedTeleport {
 		try {
 			if (this._promise) {
 				this._resolve(value);
+				if (this._multiRecv) {
+					this._value = value;
+				}
 			}
 			else {
 				this._value = value;
@@ -88,6 +100,9 @@ export default class MutedTeleport {
 		try {
 			if (this._promise) {
 				this._reject(err);
+				if (this._multiRecv) {
+					this._value = err;
+				}
 			}
 			else {
 				this._value = err;
