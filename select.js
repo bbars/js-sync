@@ -11,16 +11,17 @@ export default async function* select(...sources) {
 	const cleanProms = (fired) => {
 		for (const prom of proms) {
 			if (prom !== fired) {
-				prom.cancel();
+					prom.cancel();
 			}
 		}
+		proms.splice(0, proms.length);
 	};
 	const chan = new Channel();
 	while (sources.length > 0) {
 		for (let i = sources.length - 1; i >= 0; i--) {
 			const source = sources[i];
 			if ((source instanceof Channel || source instanceof Teleport) && !source.isClosed) {
-				// noinspection ES6MissingAwait
+					// noinspection ES6MissingAwait
 				(async () => {
 					const prom = source.recv();
 					proms.push(prom);
@@ -28,12 +29,12 @@ export default async function* select(...sources) {
 						const value = await prom;
 						cleanProms(prom);
 						await chan.send([value, source]);
-					}
+				}
 					catch (err) {
 						// console.warn(err);
 						// ignore
 						// TODO: ignore ErrorCancelled only
-					}
+			}
 				})();
 			}
 			else {

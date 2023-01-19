@@ -22,7 +22,7 @@ export default class PromiseWithCancel extends Promise {
 			executor(
 				(res) => { this._isResolved = true; resolve(res); },
 				(err) => { this._isRejected = true; reject(err); },
-				() => this.cancelled,
+				() => this.isCancelled,
 			);
 		});
 		this._onCancel = onCancel;
@@ -31,7 +31,7 @@ export default class PromiseWithCancel extends Promise {
 	/**
 	 * @return {boolean}
 	 */
-	get cancelled() {
+	get isCancelled() {
 		return this._isCancelled;
 	}
 	
