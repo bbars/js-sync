@@ -1,3 +1,4 @@
+import PromiseWithCancel from './PromiseWithCancel.js';
 import Teleport from './Teleport.js';
 import Channel from './Channel.js';
 import select from './select.js';
@@ -8,12 +9,24 @@ function debug(...args) {
 	// console.debug(...args); // suppress debug
 }
 
-it('select: tick-after-tick-tick', async () => {
+it('select: mixed sources', async () => {
+	const sources = [
+		makeTickChannel(10, 'tickChannelOne'),
+		makeAfterTeleport(11, 'afterTeleport'),
+		makeTickChannel(12, 'tickChannelTwo'),
+		makeAfterPromise(13, 'afterPromise'),
+		makeAfterPromiseWithCancel(14, 'afterPromiseWithCancel'),
+	];
 	const timeStart = Date.now();
-	for await (const [msg, source] of select(after(10), tick(10, 'one'), tick(10, 'two'))) {
+	for await (const [msg, source] of select(...sources)) {
 		debug(`selected recv (from ${source.__label}):`, msg);
-		if (Date.now() - timeStart >= 100) {
+		if (Date.now() - timeStart >= 60) {
 			break;
+		}
+	}
+	for (const source of sources) {
+		if (source instanceof Channel) {
+			source.close();
 		}
 	}
 });
@@ -53,7 +66,9 @@ it('select: shared counter concurrency', async () => {
 	const counterLimit = 10;
 	for await (const [num] of select(...yilders)) {
 		debug('num', num);
+		const prevSum = sum;
 		sum += num;
+		debug(`sum = prevSum + num => ${prevSum} + ${num} = ${sum}`);
 		if (counter >= counterLimit) {
 			break;
 		}
@@ -69,7 +84,7 @@ it('select: shared counter concurrency', async () => {
 	// assert.equal(counter, counterLimit + yielders.length, 'final counter value is wrong'); // not sure
 	debug('sum', sum);
 	const expectedSum = (counterLimit * (counterLimit + 1)) / 2;
-	assert.equal(sum, expectedSum, 'wrong sum of R=[1, 100]');
+	assert.equal(sum, expectedSum, `wrong sum of R=[1, ${counterLimit}]`);
 });
 
 // UTILS:
@@ -79,24 +94,43 @@ async function sleep(delay, debugMsg = 'sleep') {
 	return new Promise(r => setTimeout(r, delay));
 }
 
-function after(delay, label = 'after') {
+function makeAfterTeleport(delay, label) {
 	const tele = new Teleport();
 	tele.__label = label;
 	(async () => {
-		await new Promise(r => setTimeout(r, delay));
+		await sleep(delay);
 		await tele.send(new Date());
 	})();
 	return tele;
 }
 
-function tick(delay, label = 'tick') {
+function makeTickChannel(delay, label) {
 	const chan = new Channel();
 	chan.__label = label;
 	(async () => {
 		while (!chan.isClosed) {
 			await chan.send(new Date());
-			await new Promise(r => setTimeout(r, delay));
+			await sleep(delay);
 		}
+		debug(`ticker ${label} terminated`)
 	})();
 	return chan;
+}
+
+function makeAfterPromise(delay, label) {
+	const prom = new Promise(async (resolve) => {
+		await sleep(delay);
+		resolve(new Date());
+	});
+	prom.__label = label;
+	return prom;
+}
+
+function makeAfterPromiseWithCancel(delay, label) {
+	const prom = new PromiseWithCancel(async (resolve) => {
+		await sleep(delay);
+		resolve(new Date());
+	});
+	prom.__label = label;
+	return prom;
 }
